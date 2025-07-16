@@ -1,3 +1,4 @@
+#pragma once
 #include "commands.hpp"
 #include "logger.hpp"
 #include <iostream>

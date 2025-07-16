@@ -1,13 +1,14 @@
 #pragma once
-#include <cstdlib>
+#include <string>
 
 namespace dcleaner {
 
 namespace detail {
 
-struct FilesCategoryInfo {
+struct CategorySummary {
+    std::string category_name_;
+    uint64_t files_total_size_in_bytes_;
     size_t files_count_;
-    size_t files_size_;
 };
 
 } // namspace detail

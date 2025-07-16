@@ -1,4 +1,6 @@
+#pragma once
 #include <expected>
+#include <memory>
 #include <vector>
 #include <iostream>
 #include "filesystem.hpp"
@@ -9,25 +11,26 @@ namespace dcleaner {
 
 struct ExitSignal {};
 
+
 using path = ghc::filesystem::path;
-using ExecuteResult = std::expected<CommandOutput, ExitSignal>;
+using ExecuteResult = std::expected<std::unique_ptr<CommandOutput>, ExitSignal>;
 
 
 class Command {
 public:
-    Command(const detail::Logger&);
+    Command(detail::Logger&);
     virtual ~Command() = default;
 
-    virtual ExecuteResult execute() = 0;
-private:
-    const detail::Logger& logger;
+    virtual ExecuteResult execute() const = 0;
+protected:
+    detail::Logger& logger_;
 };
 
 
 class Analyze : public Command {
 public:
-    Analyze(const detail::Logger&, detail::UserParameters&&);
-    ExecuteResult execute() override;
+    Analyze(detail::Logger&, detail::UserParameters&&);
+    ExecuteResult execute() const override;
 
 private:
     detail::UserParameters parameters_;
@@ -36,8 +39,8 @@ private:
 
 class Delete : public Command {
 public:
-    Delete(const detail::Logger&, detail::UserParameters&&);
-    ExecuteResult execute() override;
+    Delete(detail::Logger&, detail::UserParameters&&);
+    ExecuteResult execute() const override;
 
 private:
     detail::UserParameters parameters_;
@@ -46,13 +49,15 @@ private:
 
 class Help : public Command {
 public:
-    ExecuteResult execute() override;
+    ExecuteResult execute() const override;
 };
+
 
 class Exit : public Command {
 public:
-    ExecuteResult execute() override;
+    ExecuteResult execute() const override;
 };
+
 
 namespace detail {
 

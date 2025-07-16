@@ -1,36 +1,42 @@
-#include <map>
+#pragma once
+#include <vector>
 #include <string>
-#include "files_category_info.hpp"
+#include <cstdint>
+#include "summary.hpp"
 
 namespace dcleaner {
  
-class CommandOutput {
-    virtual ~CommandOutput() = default;
-    virtual std::string to_string() const = 0;
-};
+using CategorySummaries = std::vector<detail::CategorySummary>;
 
+class CommandOutput {
+public:
+    virtual ~CommandOutput() = default;
+};
 
 class AnalyzeOutput : public CommandOutput {
 public:
-    std::string to_string() const override;
+    void add_summary(detail::CategorySummary&&);
+    const CategorySummaries& get_summaries_cref() const;
 
 private:
-    std::map<std::string, detail::FilesCategoryInfo> category_name_to_info_;
+    CategorySummaries summaries_;
 };
 
 
 class DeleteOutput : public CommandOutput {
 public:
-    std::string to_string() const override;
+    void add_summary(detail::CategorySummary&&);
+    const CategorySummaries& get_summaries_cref() const;
 
 private:
-    std::map<std::string, detail::FilesCategoryInfo> category_name_to_info_;
+    CategorySummaries summaries_;
 };
 
 
 class HelpOutput : public CommandOutput {
 public:
-    std::string to_string() const override;
+    HelpOutput(std::string&&);
+    const std::string& get_info_cref() const;
 
 private:
     std::string info_;
