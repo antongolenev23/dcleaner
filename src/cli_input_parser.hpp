@@ -11,7 +11,7 @@ public:
         : logger_(logger) 
     {}
 
-    static Command parse_input(std::istream&); 
+    static Command parse_input(std::istream&);
 
 private:
     // Logger to create a Command objects

@@ -5,19 +5,19 @@
 namespace dcleaner {
 
     
-void AnalyzeOutput::add_summary(detail::CategorySummary&& summary) {
+void AnalyzeOutput::add_summary(CategorySummary&& summary) {
     summaries_.push_back(std::move(summary));
 }
 
-const CategorySummaries& AnalyzeOutput::get_summaries_cref() const {
+const CategorySummaries& AnalyzeOutput::get_summaries() const {
     return summaries_;
 }
 
-void DeleteOutput::add_summary(detail::CategorySummary&& summary) {
+void DeleteOutput::add_summary(CategorySummary&& summary) {
     summaries_.push_back(std::move(summary));
 }
 
-const CategorySummaries& DeleteOutput::get_summaries_cref() const {
+const CategorySummaries& DeleteOutput::get_summaries() const {
     return summaries_;
 }
 
@@ -25,7 +25,7 @@ HelpOutput::HelpOutput(std::string&& help_info)
     : info_(std::move(help_info))
 {}
 
-const std::string& HelpOutput::get_info_cref() const {
+const std::string& HelpOutput::get_info() const {
     return info_;
 }
 

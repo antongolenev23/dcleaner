@@ -6,17 +6,18 @@
 
 namespace dcleaner {
  
-using CategorySummaries = std::vector<detail::CategorySummary>;
+using CategorySummaries = std::vector<CategorySummary>;
 
 class CommandOutput {
 public:
     virtual ~CommandOutput() = default;
 };
 
+
 class AnalyzeOutput : public CommandOutput {
 public:
-    void add_summary(detail::CategorySummary&&);
-    const CategorySummaries& get_summaries_cref() const;
+    void add_summary(CategorySummary&&);
+    const CategorySummaries& get_summaries() const;
 
 private:
     CategorySummaries summaries_;
@@ -25,8 +26,8 @@ private:
 
 class DeleteOutput : public CommandOutput {
 public:
-    void add_summary(detail::CategorySummary&&);
-    const CategorySummaries& get_summaries_cref() const;
+    void add_summary(CategorySummary&&);
+    const CategorySummaries& get_summaries() const;
 
 private:
     CategorySummaries summaries_;
@@ -35,8 +36,8 @@ private:
 
 class HelpOutput : public CommandOutput {
 public:
-    HelpOutput(std::string&&);
-    const std::string& get_info_cref() const;
+    explicit HelpOutput(std::string&&);
+    const std::string& get_info() const;
 
 private:
     std::string info_;
