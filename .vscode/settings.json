@@ -61,6 +61,7 @@
         "iomanip": "cpp",
         "sstream": "cpp",
         "stack": "cpp",
-        "expected": "cpp"
+        "expected": "cpp",
+        "C_Cpp.clang_format_style": "file"
     }
 }
