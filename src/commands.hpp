@@ -19,32 +19,32 @@ using ExecuteResult = std::expected<std::unique_ptr<CommandOutput>, ExitSignal>;
 
 class Command {
  public:
-  Command(detail::Logger&);
+  Command(Logger&);
   virtual ~Command() = default;
 
   virtual ExecuteResult execute() const = 0;
 
  protected:
-  detail::Logger& logger_;
+  Logger& logger_;
 };
 
 class Analyze : public Command {
  public:
-  Analyze(detail::Logger&, detail::UserParameters&&);
+  Analyze(Logger&, detail::UserParameters&&);
   ExecuteResult execute() const override;
 
  private:
-  void categorize_file(const std::string& path_str, const struct stat& info,
-                       AnalyzeOutput& output) const;
-  void categorize_folder(const ghc::filesystem::path& path,
-                         const struct stat& info, AnalyzeOutput& output) const;
+  void categorize_file(const std::string& path_str, const struct stat& info, AnalyzeOutput& output) const;
+  void categorize_directory(const ghc::filesystem::path& path, const struct stat& info, AnalyzeOutput& output) const;
+  void recursive_directory_analyze(const fs::path& root_path, AnalyzeOutput& output) const;
+  void analyze_file(const fs::path& path, AnalyzeOutput& output) const;
 
   detail::UserParameters parameters_;
 };
 
 class Delete : public Command {
  public:
-  Delete(detail::Logger&, detail::UserParameters&&);
+  Delete(Logger&, detail::UserParameters&&);
   ExecuteResult execute() const override;
 
  private:
@@ -70,7 +70,7 @@ concept Flag = std::same_as<T, FileCategory> || std::same_as<T, DeletePolicy>;
 
 class UserParameters {
  public:
-  UserParameters() : inactive_days_count_(0), flags_(0) {}
+  UserParameters() : inactive_days_count_(30), flags_(0) {}
 
   template <Flag T>
   bool has_flag(T flag) const {
@@ -98,13 +98,11 @@ class UserParameters {
 };
 
 template <std::size_t N>
-bool matches_any_glob(const std::string& path,
-                      const std::array<std::string_view, N>& globs);
+bool matches_any_glob(const std::string& path, const std::array<std::string_view, N>& globs);
 
-std::chrono::system_clock::time_point last_time(
-    std::chrono::system_clock::time_point t1,
-    std::chrono::system_clock::time_point t2,
-    std::chrono::system_clock::time_point t3);
+std::chrono::system_clock::time_point last_time(std::chrono::system_clock::time_point t1,
+                                                std::chrono::system_clock::time_point t2,
+                                                std::chrono::system_clock::time_point t3);
 
 std::chrono::system_clock::time_point get_last_access_approx(const fs::path& p);
 

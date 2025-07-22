@@ -1,2 +1,7 @@
+#include "commands.hpp"
 
-int main() {}
+using namespace dcleaner;
+
+int main() {
+
+}

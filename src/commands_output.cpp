@@ -1,4 +1,5 @@
 #include "commands_output.hpp"
+#include "logger.hpp"
 
 #include <iomanip>
 #include <sstream>
