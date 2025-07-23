@@ -23,7 +23,7 @@ void Logger::log(LogLevel level, std::string_view message) {
   ss << std::put_time(std::localtime(&time), "[%Y-%m-%d %H:%M:%S.")
      << std::setfill('0') << std::setw(3) << ms.count() << "] ";
 
-  ss << "[" << level_to_string(level) << "] ";
+  ss << level_to_string(level) << ' ';
   ss << message << '\n';
 
   {
@@ -48,4 +48,4 @@ void Logger::debug(std::string_view message) {
   log(LogLevel::DEBUG, message);
 }
 
-}  // namespace dcleaner::detail
+}  // namespace dcleaner

@@ -10,33 +10,33 @@ enum class LogLevel { ERROR, WARNING, INFO, DEBUG };
 
 // Глобальный уровень логирования определяется на этапе компиляции
 #ifndef DCLEANER_LOG_LEVEL
-#define DCLEANER_LOG_LEVEL LogLevel::INFO
+#define DCLEANER_LOG_LEVEL dcleaner::LogLevel::INFO
 #endif
 
 #define LOG_SHOULD_LOG(level) (static_cast<int>(level) <= static_cast<int>(DCLEANER_LOG_LEVEL))
 
-#define LOG_ERROR(logger, msg)                             \
-  do {                                                     \
+#define LOG_ERROR(logger, msg)                     \
+  do {                                             \
     if (LOG_SHOULD_LOG(dcleaner::LogLevel::ERROR)) \
-      logger.error(msg);                                   \
+      logger.error(msg);                           \
   } while (0)
 
-#define LOG_WARNING(logger, msg)                             \
-  do {                                                       \
+#define LOG_WARNING(logger, msg)                     \
+  do {                                               \
     if (LOG_SHOULD_LOG(dcleaner::LogLevel::WARNING)) \
-      logger.warning(msg);                                   \
+      logger.warning(msg);                           \
   } while (0)
 
-#define LOG_INFO(logger, msg)                             \
-  do {                                                    \
+#define LOG_INFO(logger, msg)                     \
+  do {                                            \
     if (LOG_SHOULD_LOG(dcleaner::LogLevel::INFO)) \
-      logger.info(msg);                                   \
+      logger.info(msg);                           \
   } while (0)
 
-#define LOG_DEBUG(logger, msg)                             \
-  do {                                                     \
+#define LOG_DEBUG(logger, msg)                     \
+  do {                                             \
     if (LOG_SHOULD_LOG(dcleaner::LogLevel::DEBUG)) \
-      logger.debug(msg);                                   \
+      logger.debug(msg);                           \
   } while (0)
 
 class Logger {
@@ -54,7 +54,7 @@ class Logger {
   std::ostream& stream_;
   std::mutex mutex_;
 
-  static constexpr std::string_view level_to_string(LogLevel level) {
+  static constexpr std::string level_to_string(LogLevel level) {
     switch (level) {
       case LogLevel::ERROR:
         return "[ERROR]";
@@ -74,4 +74,4 @@ class Logger {
   }
 };
 
-}  // namespace dcleaner::detail
+}  // namespace dcleaner

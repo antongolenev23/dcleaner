@@ -3,9 +3,9 @@
 #include <iomanip>
 #include <sstream>
 
-namespace dcleaner {}  // namespace dcleaner
+namespace dcleaner {
 
-namespace dcleaner::detail {
+namespace detail {
 
 std::string format_size(uint64_t bytes) {
   const char* units[] = {"B", "KB", "MB", "GB", "TB", "PB"};
@@ -18,9 +18,10 @@ std::string format_size(uint64_t bytes) {
   }
 
   std::ostringstream oss;
-  oss << std::fixed << std::setprecision(size < 10 ? 1 : 0) << size << ' '
-      << units[unit_index];
+  oss << std::fixed << std::setprecision(size < 10 ? 1 : 0) << size << ' ' << units[unit_index];
   return oss.str();
 }
 
-}  // namespace dcleaner::detail
+}  // namespace detail
+
+}  // namespace dcleaner

@@ -14,6 +14,58 @@ using namespace dcleaner::detail;
 
 namespace dcleaner {
 
+namespace detail {
+
+const std::vector<fs::path>& UserParameters::get_paths() const {
+  return paths_;
+}
+
+const std::vector<std::string>& UserParameters::get_exclude_globs() const {
+  return exclude_globs_;
+}
+
+size_t UserParameters::get_inactive_days_count() const {
+  return inactive_days_count_;
+}
+
+void UserParameters::add_path(fs::path&& path) {
+  paths_.emplace_back(std::move(path));
+}
+
+void UserParameters::add_exclude_glob(std::string&& glob) {
+  exclude_globs_.emplace_back(std::move(glob));
+}
+
+void UserParameters::set_inactive_days_count(size_t inactive_days_count) {
+  inactive_days_count_ = inactive_days_count;
+}
+
+template <std::size_t N>
+bool matches_any_glob(const std::string& path, const std::array<std::string_view, N>& globs) {
+  for (const auto& pattern : globs) {
+    if (fnmatch(pattern.data(), path.c_str(), FNM_PATHNAME) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+std::chrono::system_clock::time_point last_time(std::chrono::system_clock::time_point t1,
+                                                std::chrono::system_clock::time_point t2,
+                                                std::chrono::system_clock::time_point t3) {
+  return std::max({t1, t2, t3});
+}
+
+std::chrono::system_clock::time_point get_last_access_approx(const struct stat& info) {
+  auto atime = std::chrono::system_clock::from_time_t(info.st_atime);
+  auto mtime = std::chrono::system_clock::from_time_t(info.st_mtime);
+  auto ctime = std::chrono::system_clock::from_time_t(info.st_ctime);
+
+  return last_time(atime, mtime, ctime);
+}
+
+}  // namespace detail
+
 Command::Command(Logger& logger) : logger_(logger) {}
 
 Analyze::Analyze(Logger& logger, UserParameters&& parameters) : Command{logger}, parameters_(parameters) {}
@@ -152,65 +204,11 @@ ExecuteResult Delete::execute() const {
 }
 
 ExecuteResult Help::execute() const {
-  // todo help text
-  std::unique_ptr<CommandOutput> help_output = std::make_unique<HelpOutput>("dummy text");
-  return help_output;
+  return std::unexpected(Signal::HELP);
 }
 
 ExecuteResult Exit::execute() const {
-  return std::unexpected(ExitSignal{});
+  return std::unexpected(Signal::EXIT);
 }
 
 }  // namespace dcleaner
-
-namespace dcleaner::detail {
-
-const std::vector<fs::path>& UserParameters::get_paths() const {
-  return paths_;
-}
-
-const std::vector<std::string>& UserParameters::get_exclude_globs() const {
-  return exclude_globs_;
-}
-
-size_t UserParameters::get_inactive_days_count() const {
-  return inactive_days_count_;
-}
-
-void UserParameters::add_path(fs::path&& path) {
-  paths_.emplace_back(std::move(path));
-}
-
-void UserParameters::add_exclude_glob(std::string&& glob) {
-  exclude_globs_.emplace_back(std::move(glob));
-}
-
-void UserParameters::set_inactive_hours_count(size_t inactive_hours_count) {
-  inactive_days_count_ = inactive_hours_count;
-}
-
-template <std::size_t N>
-bool matches_any_glob(const std::string& path, const std::array<std::string_view, N>& globs) {
-  for (const auto& pattern : globs) {
-    if (fnmatch(pattern.data(), path.c_str(), FNM_PATHNAME) == 0) {
-      return true;
-    }
-  }
-  return false;
-}
-
-std::chrono::system_clock::time_point last_time(std::chrono::system_clock::time_point t1,
-                                                std::chrono::system_clock::time_point t2,
-                                                std::chrono::system_clock::time_point t3) {
-  return std::max({t1, t2, t3});
-}
-
-std::chrono::system_clock::time_point get_last_access_approx(const struct stat& info) {
-  auto atime = std::chrono::system_clock::from_time_t(info.st_atime);
-  auto mtime = std::chrono::system_clock::from_time_t(info.st_mtime);
-  auto ctime = std::chrono::system_clock::from_time_t(info.st_ctime);
-
-  return last_time(atime, mtime, ctime);
-}
-
-}  // namespace dcleaner::detail
