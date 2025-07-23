@@ -24,3 +24,5 @@ add_executable(dcleaner
 )
 
 target_include_directories(dcleaner PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/external")
+
+add_subdirectory(tests)

@@ -4,11 +4,11 @@
 #include <expected>
 #include <iostream>
 #include <memory>
-#include <vector>
 #include <variant>
+#include <vector>
 
-#include "commands_output.hpp"
 #include "../external/filesystem.hpp"
+#include "commands_output.hpp"
 #include "logger.hpp"
 
 namespace dcleaner {
@@ -81,8 +81,9 @@ class Analyze : public Command {
   ExecuteResult execute() const override;
 
  private:
-  void categorize_file(const std::string& path_str, const struct stat& info, AnalyzeOutput& output) const;
-  void categorize_directory(const ghc::filesystem::path& path, const struct stat& info, AnalyzeOutput& output) const;
+  void analyze_root_path(const fs::path& root, const fs::file_status& status, dcleaner::AnalyzeOutput& output) const;
+  void check_activity(const std::string& path, const struct stat& info, AnalyzeOutput& output) const;
+  void check_dir_is_empty(const ghc::filesystem::path& path, const struct stat& info, AnalyzeOutput& output) const;
   void recursive_directory_analyze(const fs::path& root_path, AnalyzeOutput& output) const;
   void analyze_file(const fs::path& path, AnalyzeOutput& output) const;
 

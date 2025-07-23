@@ -6,12 +6,10 @@ namespace dcleaner {
 enum class FileCategory {
   INACTIVE = 1,
   EMPTY = 1 << 1,
-  CACHE = 1 << 2,
-  TEMPORARY = 1 << 3,
 };
 
 enum class DeletePolicy {
-  FORCE = 1 << 4,
+  FORCE = 1 << 2,
 };
 
 struct CategorySummary {

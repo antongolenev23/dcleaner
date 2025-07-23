@@ -6,12 +6,10 @@ using namespace dcleaner;
 int main() {
     Logger logger;
     detail::UserParameters params;
-    params.add_path(fs::path("/home/anton/University/Dev/solid_and_patterns_train"));
-    params.set_flag(FileCategory::CACHE);
+    params.add_path(fs::path("/home/anton/University/Dev"));
     params.set_flag(FileCategory::INACTIVE);
-    params.set_flag(FileCategory::TEMPORARY);
     params.set_flag(FileCategory::EMPTY);
-    params.set_inactive_days_count(5);
+    params.set_inactive_days_count(30);
 
     Analyze analyze(logger, std::move(params));
     ExecuteResult result = analyze.execute();
@@ -24,11 +22,7 @@ int main() {
             std::string str_key = [&key]() {
                 switch(key) {
                 case FileCategory::INACTIVE:
-                    return "Inactive";
-                case FileCategory::CACHE:
-                    return "Cache";
-                case FileCategory::TEMPORARY:
-                    return "Temp";                    
+                    return "Inactive";               
                 case FileCategory::EMPTY:
                     return "Empty";
                 }

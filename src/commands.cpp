@@ -7,8 +7,6 @@
 #include <format>
 
 #include "dir_blacklist.hpp"
-#include "dir_whitelist_cache.hpp"
-#include "dir_whitelist_temp.hpp"
 
 using namespace dcleaner::detail;
 
@@ -40,10 +38,82 @@ void UserParameters::set_inactive_days_count(size_t inactive_days_count) {
   inactive_days_count_ = inactive_days_count;
 }
 
+// Вспомогательная функция для соединения строк
+std::string join_strings(std::vector<std::string>::const_iterator begin,
+                        std::vector<std::string>::const_iterator end,
+                        const std::string& delimiter) {
+    std::string result;
+    for (auto it = begin; it != end; ++it) {
+        if (!result.empty()) {
+            result += delimiter;
+        }
+        result += *it;
+    }
+    return result;
+}
+
+
+bool match_glob_pattern(const std::string& pattern, const std::string& path) {
+    // Если паттерн точь-в-точь совпадает с путем
+    if (pattern == path) {
+        return true;
+    }
+
+    // Разбиваем паттерн и путь на компоненты
+    std::vector<std::string> pattern_parts;
+    std::istringstream pattern_stream(pattern);
+    std::string part;
+    while (std::getline(pattern_stream, part, '/')) {
+        pattern_parts.push_back(part);
+    }
+
+    std::vector<std::string> path_parts;
+    std::istringstream path_stream(path);
+    while (std::getline(path_stream, part, '/')) {
+        path_parts.push_back(part);
+    }
+
+    // Индексы для текущего компонента в паттерне и пути
+    size_t pattern_idx = 0;
+    size_t path_idx = 0;
+
+    while (pattern_idx < pattern_parts.size() && path_idx < path_parts.size()) {
+        const std::string& pattern_part = pattern_parts[pattern_idx];
+        
+        if (pattern_part == "**") {
+            // Рекурсивное совпадение: пропускаем любое количество каталогов
+            if (pattern_idx == pattern_parts.size() - 1) {
+                // ** в конце паттерна - совпадает с остатком пути
+                return true;
+            }
+            
+            // Пробуем совместить оставшийся паттерн с каждой возможной позицией в пути
+            for (size_t i = path_idx; i <= path_parts.size(); ++i) {
+                if (match_glob_pattern(
+                    join_strings(pattern_parts.begin() + pattern_idx + 1, pattern_parts.end(), "/"),
+                    join_strings(path_parts.begin() + i, path_parts.end(), "/"))) {
+                    return true;
+                }
+            }
+            return false;
+        } else if (pattern_part == "*" || fnmatch(pattern_part.c_str(), path_parts[path_idx].c_str(), 0) == 0) {
+            // Обычное совпадение или звездочка
+            pattern_idx++;
+            path_idx++;
+        } else {
+            return false;
+        }
+    }
+
+    // Если дошли до конца и паттерна, и пути - совпадение
+    return pattern_idx == pattern_parts.size() && path_idx == path_parts.size();
+}
+
+// Шаблонная функция проверки списка шаблонов
 template <std::size_t N>
 bool matches_any_glob(const std::string& path, const std::array<std::string_view, N>& globs) {
   for (const auto& pattern : globs) {
-    if (fnmatch(pattern.data(), path.c_str(), FNM_PATHNAME) == 0) {
+    if (match_glob_pattern(std::string(pattern), path)) {
       return true;
     }
   }
@@ -70,6 +140,23 @@ Command::Command(Logger& logger) : logger_(logger) {}
 
 Analyze::Analyze(Logger& logger, UserParameters&& parameters) : Command{logger}, parameters_(parameters) {}
 
+void Analyze::analyze_root_path(const fs::path& root, const fs::file_status& status,
+                                dcleaner::AnalyzeOutput& output) const {
+  if (fs::is_directory(status)) {
+    recursive_directory_analyze(root, output);
+  } else if (fs::is_regular_file(status)) {
+    if (parameters_.has_flag(FileCategory::INACTIVE)) {
+      analyze_file(root, output);
+    } else {
+      output.add_error(root.string(), "expect folder, not file (turn on --inactive flag)");
+      LOG_WARNING(logger_, std::format("{}: expect folder, not file (turn on --inactive flag)", root.native()));
+    }
+  } else {
+    output.add_error(root.string(), "unsupported file type");
+    LOG_WARNING(logger_, std::format("{}: unsupported file type", root.native()));
+  }
+}
+
 ExecuteResult Analyze::execute() const {
   LOG_DEBUG(logger_, "call Analyze::execute()");
   AnalyzeOutput output;
@@ -85,62 +172,40 @@ ExecuteResult Analyze::execute() const {
       continue;
     }
 
-    if (fs::is_directory(status)) {
-      recursive_directory_analyze(root, output);
-    } else if (fs::is_regular_file(status)) {
-      analyze_file(root, output);
-    } else {
-      output.add_error(root.string(), "Unsupported file type");
-      LOG_WARNING(logger_, std::format("{}: unsupported file type", root.native()));
-    }
+    analyze_root_path(root, status, output);
   }
 
   return std::make_unique<CommandOutput>(std::move(output));
 }
 
-void Analyze::categorize_file(const std::string& path_str, const struct stat& info, AnalyzeOutput& output) const {
-  if (parameters_.has_flag(FileCategory::INACTIVE)) {
-    auto last_access_time = get_last_access_approx(info);
-    auto time_now = std::chrono::system_clock::now();
+void Analyze::check_activity(const std::string& path, const struct stat& info, AnalyzeOutput& output) const {
+  auto last_access_time = get_last_access_approx(info);
+  auto time_now = std::chrono::system_clock::now();
 
-    auto duration = last_access_time < time_now ? time_now - last_access_time : last_access_time - time_now;
+  auto duration = last_access_time < time_now ? time_now - last_access_time : last_access_time - time_now;
 
-    auto days = duration_cast<std::chrono::days>(duration).count();
-    size_t days_passed = static_cast<size_t>(days);
+  auto days = duration_cast<std::chrono::days>(duration).count();
+  size_t days_passed = static_cast<size_t>(days);
 
-    if (days_passed >= parameters_.get_inactive_days_count()) {
-      output.increment_summary(FileCategory::INACTIVE, 1, info.st_size);
-      LOG_DEBUG(logger_, std::format("{}: added to inactive", path_str));
-      return;
-    }
-  }
-  if (parameters_.has_flag(FileCategory::CACHE)) {
-    if (matches_any_glob(path_str, CACHE_WHITELIST)) {
-      LOG_DEBUG(logger_, std::format("{}: added to cache", path_str));
-      output.increment_summary(FileCategory::CACHE, 1, info.st_size);
-      return;
-    }
-  }
-  if (parameters_.has_flag(FileCategory::TEMPORARY)) {
-    if (matches_any_glob(path_str, TEMP_FILES_WHITELIST)) {
-      LOG_DEBUG(logger_, std::format("{}: added to temp", path_str));
-      output.increment_summary(FileCategory::TEMPORARY, 1, info.st_size);
-    }
+  if (days_passed >= parameters_.get_inactive_days_count()) {
+    output.increment_summary(FileCategory::INACTIVE, 1, info.st_size);
+    LOG_DEBUG(logger_, std::format("{}: added to inactive", path));
+    return;
+  } else {
+    LOG_DEBUG(logger_, std::format("{}: has been used recently", path));
   }
 }
 
-void Analyze::categorize_directory(const ghc::filesystem::path& path, const struct stat& info,
-                                   AnalyzeOutput& output) const {
-  if (parameters_.has_flag(FileCategory::EMPTY)) {
-    std::error_code ec;
-    bool is_empty = fs::is_empty(path, ec);
-    if (!ec) {
-      if (is_empty) {
-        output.increment_summary(FileCategory::EMPTY, 1, info.st_size);
-      }
-    } else {
-      LOG_WARNING(logger_, std::format("{}: {}", path.native(), ec.message()));
+void Analyze::check_dir_is_empty(const ghc::filesystem::path& path, const struct stat& info,
+                                 AnalyzeOutput& output) const {
+  std::error_code ec;
+  bool is_empty = fs::is_empty(path, ec);
+  if (!ec) {
+    if (is_empty) {
+      output.increment_summary(FileCategory::EMPTY, 1, info.st_size);
     }
+  } else {
+    LOG_WARNING(logger_, std::format("{}: {}", path.native(), ec.message()));
   }
 }
 
@@ -178,12 +243,17 @@ void Analyze::recursive_directory_analyze(const fs::path& root_path, AnalyzeOutp
       continue;
     }
 
-    if (S_ISREG(info.st_mode)) {
-      categorize_file(path_str, info, output);
-    } else if (S_ISDIR(info.st_mode)) {
-      categorize_directory(path, info, output);
+    if (parameters_.has_flag(FileCategory::INACTIVE) && S_ISREG(info.st_mode)) {
+      check_activity(path_str, info, output);
+    } else if (parameters_.has_flag(FileCategory::EMPTY) && S_ISDIR(info.st_mode)) {
+      check_dir_is_empty(path, info, output);
     }
   }
+}
+
+bool is_file_in_use(const std::string& path) {
+  std::string cmd = "lsof " + path + " > /dev/null 2>&1";
+  return system(cmd.c_str()) == 0;
 }
 
 void Analyze::analyze_file(const fs::path& path, AnalyzeOutput& output) const {
@@ -194,7 +264,7 @@ void Analyze::analyze_file(const fs::path& path, AnalyzeOutput& output) const {
     LOG_WARNING(logger_, std::format("{}: error getting stat", path_str));
     return;
   }
-  categorize_file(path_str, info, output);
+  check_activity(path_str, info, output);
 }
 
 Delete::Delete(Logger& logger, UserParameters&& parameters) : Command{logger}, parameters_(parameters) {}
