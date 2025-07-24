@@ -1,4 +1,5 @@
 #include "commands.hpp"
+#include "glob_match_check.hpp"
 
 #include <fnmatch.h>
 #include <sys/stat.h>
@@ -38,100 +39,16 @@ void UserParameters::set_inactive_days_count(size_t inactive_days_count) {
   inactive_days_count_ = inactive_days_count;
 }
 
-// Вспомогательная функция для соединения строк
-std::string join_strings(std::vector<std::string>::const_iterator begin,
-                        std::vector<std::string>::const_iterator end,
-                        const std::string& delimiter) {
-    std::string result;
-    for (auto it = begin; it != end; ++it) {
-        if (!result.empty()) {
-            result += delimiter;
-        }
-        result += *it;
-    }
-    return result;
-}
-
-
-bool match_glob_pattern(const std::string& pattern, const std::string& path) {
-    // Если паттерн точь-в-точь совпадает с путем
-    if (pattern == path) {
-        return true;
-    }
-
-    // Разбиваем паттерн и путь на компоненты
-    std::vector<std::string> pattern_parts;
-    std::istringstream pattern_stream(pattern);
-    std::string part;
-    while (std::getline(pattern_stream, part, '/')) {
-        pattern_parts.push_back(part);
-    }
-
-    std::vector<std::string> path_parts;
-    std::istringstream path_stream(path);
-    while (std::getline(path_stream, part, '/')) {
-        path_parts.push_back(part);
-    }
-
-    // Индексы для текущего компонента в паттерне и пути
-    size_t pattern_idx = 0;
-    size_t path_idx = 0;
-
-    while (pattern_idx < pattern_parts.size() && path_idx < path_parts.size()) {
-        const std::string& pattern_part = pattern_parts[pattern_idx];
-        
-        if (pattern_part == "**") {
-            // Рекурсивное совпадение: пропускаем любое количество каталогов
-            if (pattern_idx == pattern_parts.size() - 1) {
-                // ** в конце паттерна - совпадает с остатком пути
-                return true;
-            }
-            
-            // Пробуем совместить оставшийся паттерн с каждой возможной позицией в пути
-            for (size_t i = path_idx; i <= path_parts.size(); ++i) {
-                if (match_glob_pattern(
-                    join_strings(pattern_parts.begin() + pattern_idx + 1, pattern_parts.end(), "/"),
-                    join_strings(path_parts.begin() + i, path_parts.end(), "/"))) {
-                    return true;
-                }
-            }
-            return false;
-        } else if (pattern_part == "*" || fnmatch(pattern_part.c_str(), path_parts[path_idx].c_str(), 0) == 0) {
-            // Обычное совпадение или звездочка
-            pattern_idx++;
-            path_idx++;
-        } else {
-            return false;
-        }
-    }
-
-    // Если дошли до конца и паттерна, и пути - совпадение
-    return pattern_idx == pattern_parts.size() && path_idx == path_parts.size();
-}
-
-// Шаблонная функция проверки списка шаблонов
-template <std::size_t N>
-bool matches_any_glob(const std::string& path, const std::array<std::string_view, N>& globs) {
-  for (const auto& pattern : globs) {
-    if (match_glob_pattern(std::string(pattern), path)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 std::chrono::system_clock::time_point last_time(std::chrono::system_clock::time_point t1,
-                                                std::chrono::system_clock::time_point t2,
-                                                std::chrono::system_clock::time_point t3) {
-  return std::max({t1, t2, t3});
+                                                std::chrono::system_clock::time_point t2) {
+  return std::max({t1, t2});
 }
 
 std::chrono::system_clock::time_point get_last_access_approx(const struct stat& info) {
   auto atime = std::chrono::system_clock::from_time_t(info.st_atime);
   auto mtime = std::chrono::system_clock::from_time_t(info.st_mtime);
-  auto ctime = std::chrono::system_clock::from_time_t(info.st_ctime);
 
-  return last_time(atime, mtime, ctime);
+  return last_time(atime, mtime);
 }
 
 }  // namespace detail
@@ -222,18 +139,17 @@ void Analyze::recursive_directory_analyze(const fs::path& root_path, AnalyzeOutp
     }
 
     const fs::directory_entry& entry = *it;
-
-    if (entry.is_symlink(ec)) {
-      LOG_WARNING(logger_, std::format("{}: {}", entry.path().native(), ec.message()));
-      ec.clear();
-      continue;
-    }
-
     const auto& path = entry.path();
     std::string path_str = path.string();
 
     if (matches_any_glob(path_str, BLACKLIST)) {
       LOG_INFO(logger_, std::format("{}: this path is in blacklist", path_str));
+      continue;
+    }
+
+    if (entry.is_symlink(ec)) {
+      LOG_WARNING(logger_, std::format("{}: {}", entry.path().native(), ec.message()));
+      ec.clear();
       continue;
     }
 
@@ -249,11 +165,6 @@ void Analyze::recursive_directory_analyze(const fs::path& root_path, AnalyzeOutp
       check_dir_is_empty(path, info, output);
     }
   }
-}
-
-bool is_file_in_use(const std::string& path) {
-  std::string cmd = "lsof " + path + " > /dev/null 2>&1";
-  return system(cmd.c_str()) == 0;
 }
 
 void Analyze::analyze_file(const fs::path& path, AnalyzeOutput& output) const {

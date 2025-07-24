@@ -43,7 +43,7 @@ class Logger {
  public:
   explicit Logger(std::ostream& stream = std::cout);
 
-  void log(LogLevel level, std::string_view message);
+  virtual void log(LogLevel level, std::string_view message);
 
   void error(std::string_view message);
   void warning(std::string_view message);

@@ -51,9 +51,6 @@ class UserParameters {
   int flags_;
 };
 
-template <std::size_t N>
-bool matches_any_glob(const std::string& path, const std::array<std::string_view, N>& globs);
-
 std::chrono::system_clock::time_point last_time(std::chrono::system_clock::time_point t1,
                                                 std::chrono::system_clock::time_point t2,
                                                 std::chrono::system_clock::time_point t3);

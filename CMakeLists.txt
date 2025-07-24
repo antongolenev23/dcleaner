@@ -1,12 +1,12 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.20)
 project(Dcleaner)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 set(SRC_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 option(ENABLE_DEBUG "Build in Debug mode" ON)
+option(BUILD_TESTS "Build tests" ON)
 
 if(ENABLE_DEBUG)
   set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type" FORCE)
@@ -15,14 +15,23 @@ else()
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
 endif()
 
-add_executable(dcleaner
-  "${SRC_PATH}/main.cpp"
+add_executable(dcleaner "${SRC_PATH}/main.cpp")
+
+add_library(dcleaner_code STATIC
+  "${SRC_PATH}/glob_match_check.cpp"
   "${SRC_PATH}/logger.cpp"
   "${SRC_PATH}/commands.cpp"
   "${SRC_PATH}/commands_output.cpp"
   "${SRC_PATH}/cli_output_writer.cpp"
 )
 
-target_include_directories(dcleaner PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/external")
+target_include_directories(dcleaner_code PUBLIC 
+  "${CMAKE_CURRENT_SOURCE_DIR}/external"
+)
 
-add_subdirectory(tests)
+target_link_libraries(dcleaner PRIVATE dcleaner_code)
+
+if(BUILD_TESTS) 
+  enable_testing()
+  add_subdirectory(tests)
+endif()

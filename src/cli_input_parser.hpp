@@ -8,13 +8,13 @@ namespace dcleaner {
 
 class CLIInputParser {
  public:
-  CLIInputParser(const detail::Logger& logger) : logger_(logger) {}
+  CLIInputParser(const Logger& logger) : logger_(logger) {}
 
   static Command parse_input(std::istream&);
 
  private:
   // Logger to create a Command objects
-  const detail::Logger& logger_;
+  const Logger& logger_;
 };
 
 }  // namespace dcleaner
