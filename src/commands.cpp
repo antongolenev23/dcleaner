@@ -2,10 +2,14 @@
 #include "glob_match_check.hpp"
 
 #include <fnmatch.h>
-#include <sys/stat.h>
+
+extern "C" {
+  #include <sys/stat.h>
+}
 
 #include <chrono>
 #include <format>
+#include <thread>
 
 #include "dir_blacklist.hpp"
 
@@ -25,6 +29,10 @@ const std::vector<std::string>& UserParameters::get_exclude_globs() const {
 
 size_t UserParameters::get_inactive_days_count() const {
   return inactive_days_count_;
+}
+
+int UserParameters::get_flags_() const {
+  return flags_;
 }
 
 void UserParameters::add_path(fs::path&& path) {
@@ -55,10 +63,16 @@ std::chrono::system_clock::time_point get_last_access_approx(const struct stat& 
 
 Command::Command(Logger& logger) : logger_(logger) {}
 
-Analyze::Analyze(Logger& logger, UserParameters&& parameters) : Command{logger}, parameters_(parameters) {}
+Analyze::Analyze(Logger& logger, const UserParameters& parameters) : Command{logger}, parameters_(parameters) {
+  fs::create_directories(DELETION_LIST_DIR);
+  deletion_list_file_.open(DELETION_LIST_FILE, std::ios::out | std::ios::trunc);
+  if (!deletion_list_file_) {
+    LOG_ERROR(logger_, "Cannot open deletion list file");
+    throw std::runtime_error("Failed to open deletion list");
+  }
+}
 
-void Analyze::analyze_root_path(const fs::path& root, const fs::file_status& status,
-                                dcleaner::AnalyzeOutput& output) const {
+void Analyze::analyze_root_path(const fs::path& root, const fs::file_status& status, dcleaner::AnalyzeOutput& output) {
   if (fs::is_directory(status)) {
     recursive_directory_analyze(root, output);
   } else if (fs::is_regular_file(status)) {
@@ -74,8 +88,7 @@ void Analyze::analyze_root_path(const fs::path& root, const fs::file_status& sta
   }
 }
 
-ExecuteResult Analyze::execute() const {
-  LOG_DEBUG(logger_, "call Analyze::execute()");
+ExecuteResult Analyze::execute() {
   AnalyzeOutput output;
 
   for (const fs::path& root : parameters_.get_paths()) {
@@ -91,11 +104,12 @@ ExecuteResult Analyze::execute() const {
 
     analyze_root_path(root, status, output);
   }
+  deletion_list_file_.flush();
 
-  return std::make_unique<CommandOutput>(std::move(output));
+  return std::make_unique<AnalyzeOutput>(std::move(output));
 }
 
-void Analyze::check_activity(const std::string& path, const struct stat& info, AnalyzeOutput& output) const {
+void Analyze::check_activity(const std::string& path, const struct stat& info, AnalyzeOutput& output) {
   auto last_access_time = get_last_access_approx(info);
   auto time_now = std::chrono::system_clock::now();
 
@@ -106,6 +120,7 @@ void Analyze::check_activity(const std::string& path, const struct stat& info, A
 
   if (days_passed >= parameters_.get_inactive_days_count()) {
     output.increment_summary(FileCategory::INACTIVE, 1, info.st_size);
+    add_file_to_deletion_list(path);
     LOG_DEBUG(logger_, std::format("{}: added to inactive", path));
     return;
   } else {
@@ -113,20 +128,21 @@ void Analyze::check_activity(const std::string& path, const struct stat& info, A
   }
 }
 
-void Analyze::check_dir_is_empty(const ghc::filesystem::path& path, const struct stat& info,
-                                 AnalyzeOutput& output) const {
+void Analyze::check_dir_is_empty(const ghc::filesystem::path& path, const struct stat& info, AnalyzeOutput& output) {
   std::error_code ec;
   bool is_empty = fs::is_empty(path, ec);
   if (!ec) {
     if (is_empty) {
       output.increment_summary(FileCategory::EMPTY, 1, info.st_size);
+      add_file_to_deletion_list(path);
+      LOG_DEBUG(logger_, std::format("{}: added to empty", path.native()));
     }
   } else {
     LOG_WARNING(logger_, std::format("{}: {}", path.native(), ec.message()));
   }
 }
 
-void Analyze::recursive_directory_analyze(const fs::path& root_path, AnalyzeOutput& output) const {
+void Analyze::recursive_directory_analyze(const fs::path& root_path, AnalyzeOutput& output) {
   std::error_code ec;
 
   for (fs::recursive_directory_iterator it(root_path, fs::directory_options::skip_permission_denied, ec), end;
@@ -144,6 +160,11 @@ void Analyze::recursive_directory_analyze(const fs::path& root_path, AnalyzeOutp
 
     if (matches_any_glob(path_str, BLACKLIST)) {
       LOG_INFO(logger_, std::format("{}: this path is in blacklist", path_str));
+      continue;
+    }
+
+    if (matches_any_glob(path_str, parameters_.get_exclude_globs())) {
+      LOG_INFO(logger_, std::format("{}: this path matches exclude globs", path_str));
       continue;
     }
 
@@ -167,7 +188,7 @@ void Analyze::recursive_directory_analyze(const fs::path& root_path, AnalyzeOutp
   }
 }
 
-void Analyze::analyze_file(const fs::path& path, AnalyzeOutput& output) const {
+void Analyze::analyze_file(const fs::path& path, AnalyzeOutput& output) {
   std::string path_str = path.string();
 
   struct stat info;
@@ -178,17 +199,97 @@ void Analyze::analyze_file(const fs::path& path, AnalyzeOutput& output) const {
   check_activity(path_str, info, output);
 }
 
-Delete::Delete(Logger& logger, UserParameters&& parameters) : Command{logger}, parameters_(parameters) {}
-
-ExecuteResult Delete::execute() const {
-  // todo
+void Analyze::add_file_to_deletion_list(const fs::path& file) {
+  deletion_list_file_ << fs::absolute(file).native() << '\n';
 }
 
-ExecuteResult Help::execute() const {
+Delete::Delete(Logger& logger, const UserParameters& parameters) : Command{logger}, flags_(parameters.get_flags_()) {
+  deletion_list_file_.open(DELETION_LIST_FILE, std::ios::in);
+  if (!deletion_list_file_) {
+    LOG_ERROR(logger_, "cannot open deletion list file");
+    throw std::runtime_error("failed to open deletion list");
+  }
+}
+
+void Delete::delete_permanently(DeleteOutput& output) {
+  std::string current_path;
+
+  while (std::getline(deletion_list_file_, current_path)) {
+
+    try {
+      if (fs::is_regular_file(current_path)) {
+        size_t file_size = fs::file_size(current_path);
+
+        if (fs::remove(current_path)) {
+          output.increment_summary(FileCategory::INACTIVE, 1, file_size);
+        } else {
+          output.add_error(current_path, "path not found");
+          LOG_WARNING(logger_, std::format("{}: path not found", current_path));
+        }
+      } else if (fs::is_directory(current_path)) {
+        if (fs::remove(current_path)) {
+          output.increment_summary(FileCategory::EMPTY, 1, 0);
+        } else {
+          output.add_error(current_path, "path not found");
+          LOG_WARNING(logger_, std::format("{}: path not found", current_path));
+        }
+      } else {
+        LOG_WARNING(logger_, std::format("{}: unknown entry type(maybe symlink)", current_path));
+      }
+    } catch (const fs::filesystem_error& e) {
+      output.add_error(current_path, e.what());
+      LOG_WARNING(logger_, std::format("{}: {}", current_path, e.what()));
+    }
+  }
+}
+
+void Delete::delete_to_trash(DeleteOutput& output) {
+  std::string current_path;
+
+  while (std::getline(deletion_list_file_, current_path)) {
+    try {
+      std::string cmd = "gio trash \"" + current_path + "\"";
+
+      if (fs::is_regular_file(current_path)) {
+        size_t file_size = fs::file_size(current_path);
+
+        int result = std::system(cmd.c_str());
+        if (result == 0) {
+          output.increment_summary(FileCategory::INACTIVE, 1, file_size);
+        } else {
+          output.add_error(current_path, "failed to move in trash");
+          LOG_WARNING(logger_, std::format("{}: failed to move in trash", current_path));
+        }
+      } else if (fs::is_directory(current_path)) {
+        int result = std::system(cmd.c_str());
+        if (result == 0) {
+          output.increment_summary(FileCategory::EMPTY, 1, 0);
+        } else {
+          output.add_error(current_path, "failed to move in trash");
+          LOG_WARNING(logger_, std::format("{}: failed to move in trash", current_path));
+        }
+      } else {
+        LOG_WARNING(logger_, std::format("{}: unknown entry type(maybe symlink)", current_path));
+      }
+    } catch (const fs::filesystem_error& e) {
+      output.add_error(current_path, e.what());
+      LOG_WARNING(logger_, std::format("{}: {}", current_path, e.what()));
+    }
+  }
+}
+
+ExecuteResult Delete::execute() {
+  DeleteOutput output;
+
+  has_flag(DeletePolicy::FORCE) ? delete_permanently(output) : delete_to_trash(output);
+  return std::make_unique<DeleteOutput>(std::move(output));
+}
+
+ExecuteResult Help::execute() {
   return std::unexpected(Signal::HELP);
 }
 
-ExecuteResult Exit::execute() const {
+ExecuteResult Exit::execute() {
   return std::unexpected(Signal::EXIT);
 }
 

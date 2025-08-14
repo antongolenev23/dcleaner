@@ -15,12 +15,15 @@ namespace dcleaner {
 
 namespace fs = ghc::filesystem;
 
-enum class Signal { EXIT, HELP };
+const fs::path DELETION_LIST_DIR = "deletion_list";
+const fs::path DELETION_LIST_FILE = DELETION_LIST_DIR / "entries_to_delete.txt";
 
-namespace detail {
+enum class Signal { EXIT, HELP, FILE_OPEN_ERROR };
 
 template <typename T>
 concept Flag = std::same_as<T, FileCategory> || std::same_as<T, DeletePolicy>;
+
+namespace detail {
 
 class UserParameters {
  public:
@@ -34,6 +37,7 @@ class UserParameters {
   const std::vector<fs::path>& get_paths() const;
   const std::vector<std::string>& get_exclude_globs() const;
   size_t get_inactive_days_count() const;
+  int get_flags_() const;
   void add_path(fs::path&& path);
   void add_exclude_glob(std::string&& glob);
   void set_inactive_days_count(size_t inactive_days_count);
@@ -41,6 +45,11 @@ class UserParameters {
   template <Flag T>
   void set_flag(T flag) {
     flags_ |= static_cast<int>(flag);
+  }
+
+  template <Flag T>
+  void remove_flag(T flag) {
+    flags_ &= ~(static_cast<int>(flag));
   }
 
  private:
@@ -66,7 +75,7 @@ class Command {
   Command(Logger&);
   virtual ~Command() = default;
 
-  virtual ExecuteResult execute() const = 0;
+  virtual ExecuteResult execute() = 0;
 
  protected:
   Logger& logger_;
@@ -74,36 +83,57 @@ class Command {
 
 class Analyze : public Command {
  public:
-  Analyze(Logger&, detail::UserParameters&&);
-  ExecuteResult execute() const override;
+  Analyze(Logger&, const detail::UserParameters&);
+  ExecuteResult execute() override;
 
  private:
-  void analyze_root_path(const fs::path& root, const fs::file_status& status, dcleaner::AnalyzeOutput& output) const;
-  void check_activity(const std::string& path, const struct stat& info, AnalyzeOutput& output) const;
-  void check_dir_is_empty(const ghc::filesystem::path& path, const struct stat& info, AnalyzeOutput& output) const;
-  void recursive_directory_analyze(const fs::path& root_path, AnalyzeOutput& output) const;
-  void analyze_file(const fs::path& path, AnalyzeOutput& output) const;
+  void analyze_root_path(const fs::path& root, const fs::file_status& status, dcleaner::AnalyzeOutput& output);
+  void check_activity(const std::string& path, const struct stat& info, AnalyzeOutput& output);
+  void check_dir_is_empty(const ghc::filesystem::path& path, const struct stat& info, AnalyzeOutput& output);
+  void recursive_directory_analyze(const fs::path& root_path, AnalyzeOutput& output);
+  void analyze_file(const fs::path& path, AnalyzeOutput& output);
+  void add_file_to_deletion_list(const fs::path& file);
 
   detail::UserParameters parameters_;
+  std::ofstream deletion_list_file_;
 };
 
 class Delete : public Command {
  public:
-  Delete(Logger&, detail::UserParameters&&);
-  ExecuteResult execute() const override;
+  Delete(Logger&, const detail::UserParameters&);
+  ExecuteResult execute() override;
+
+  template <Flag T>
+  bool has_flag(T flag) const {
+    return flags_ & static_cast<int>(flag);
+  }
+
+  template <Flag T>
+  void set_flag(T flag) {
+    flags_ |= static_cast<int>(flag);
+  }
+
+  template <Flag T>
+  void remove_flag(T flag) {
+    flags_ &= ~(static_cast<int>(flag));
+  }
 
  private:
-  detail::UserParameters parameters_;
+  void delete_permanently(DeleteOutput& output);
+  void delete_to_trash(DeleteOutput& output);
+
+  std::ifstream deletion_list_file_;
+  int flags_;
 };
 
 class Help : public Command {
  public:
-  ExecuteResult execute() const override;
+  ExecuteResult execute() override;
 };
 
 class Exit : public Command {
  public:
-  ExecuteResult execute() const override;
+  ExecuteResult execute() override;
 };
 
 };  // namespace dcleaner
