@@ -4,7 +4,7 @@
 #include <fnmatch.h>
 
 extern "C" {
-  #include <sys/stat.h>
+#include <sys/stat.h>
 }
 
 #include <chrono>
@@ -43,7 +43,10 @@ void UserParameters::add_exclude_glob(std::string&& glob) {
   exclude_globs_.emplace_back(std::move(glob));
 }
 
-void UserParameters::set_inactive_days_count(size_t inactive_days_count) {
+void UserParameters::set_inactive_days_count(int inactive_days_count) {
+  if (inactive_days_count < 0) {
+    inactive_days_count = 0;
+  }
   inactive_days_count_ = inactive_days_count;
 }
 
@@ -72,6 +75,15 @@ Analyze::Analyze(Logger& logger, const UserParameters& parameters) : Command{log
   }
 }
 
+Analyze::Analyze(Logger& logger, UserParameters&& parameters) : Command{logger}, parameters_(std::move(parameters)) {
+  fs::create_directories(DELETION_LIST_DIR);
+  deletion_list_file_.open(DELETION_LIST_FILE, std::ios::out | std::ios::trunc);
+  if (!deletion_list_file_) {
+    LOG_ERROR(logger_, "Cannot open deletion list file");
+    throw std::runtime_error("Failed to open deletion list");
+  }
+}
+
 void Analyze::analyze_root_path(const fs::path& root, const fs::file_status& status, dcleaner::AnalyzeOutput& output) {
   if (fs::is_directory(status)) {
     recursive_directory_analyze(root, output);
@@ -89,6 +101,10 @@ void Analyze::analyze_root_path(const fs::path& root, const fs::file_status& sta
 }
 
 ExecuteResult Analyze::execute() {
+  if (!parameters_.has_flag(FileCategory::INACTIVE) && !parameters_.has_flag(FileCategory::EMPTY)) {
+    return std::unexpected{Signal::NOT_ENOUGH_PARAMETERS};
+  }
+
   AnalyzeOutput output;
 
   for (const fs::path& root : parameters_.get_paths()) {
@@ -203,7 +219,15 @@ void Analyze::add_file_to_deletion_list(const fs::path& file) {
   deletion_list_file_ << fs::absolute(file).native() << '\n';
 }
 
-Delete::Delete(Logger& logger, const UserParameters& parameters) : Command{logger}, flags_(parameters.get_flags_()) {
+Delete::Delete(Logger& logger, const UserParameters& parameters) : Command{logger}, parameters_(parameters) {
+  deletion_list_file_.open(DELETION_LIST_FILE, std::ios::in);
+  if (!deletion_list_file_) {
+    LOG_ERROR(logger_, "cannot open deletion list file");
+    throw std::runtime_error("failed to open deletion list");
+  }
+}
+
+Delete::Delete(Logger& logger, UserParameters&& parameters) : Command{logger}, parameters_(std::move(parameters)) {
   deletion_list_file_.open(DELETION_LIST_FILE, std::ios::in);
   if (!deletion_list_file_) {
     LOG_ERROR(logger_, "cannot open deletion list file");
@@ -279,17 +303,35 @@ void Delete::delete_to_trash(DeleteOutput& output) {
 }
 
 ExecuteResult Delete::execute() {
+  if (!fs::exists(DELETION_LIST_FILE)) {
+    try {
+      Analyze analyze{logger_, parameters_};
+      ExecuteResult result = analyze.execute();
+      if(result.error() == Signal::NOT_ENOUGH_PARAMETERS) {
+        return result;
+      }
+    } catch(const std::runtime_error& e) {
+      return std::unexpected{Signal::FILE_OPEN_ERROR};
+    }
+  }
+
   DeleteOutput output;
 
   has_flag(DeletePolicy::FORCE) ? delete_permanently(output) : delete_to_trash(output);
   return std::make_unique<DeleteOutput>(std::move(output));
 }
 
+Help::Help(Logger& logger) : Command{logger} {}
+
 ExecuteResult Help::execute() {
   return std::unexpected(Signal::HELP);
 }
 
+Exit::Exit(Logger& logger) : Command{logger} {}
+
 ExecuteResult Exit::execute() {
+  std::error_code ec;
+  fs::remove_all(DELETION_LIST_DIR, ec);
   return std::unexpected(Signal::EXIT);
 }
 

@@ -18,7 +18,7 @@ namespace fs = ghc::filesystem;
 const fs::path DELETION_LIST_DIR = "deletion_list";
 const fs::path DELETION_LIST_FILE = DELETION_LIST_DIR / "entries_to_delete.txt";
 
-enum class Signal { EXIT, HELP, FILE_OPEN_ERROR };
+enum class Signal { EXIT, HELP, FILE_OPEN_ERROR, NOT_ENOUGH_PARAMETERS, WRONG_PARAMETERS, UNKNOWN_COMMAND };
 
 template <typename T>
 concept Flag = std::same_as<T, FileCategory> || std::same_as<T, DeletePolicy>;
@@ -40,7 +40,7 @@ class UserParameters {
   int get_flags_() const;
   void add_path(fs::path&& path);
   void add_exclude_glob(std::string&& glob);
-  void set_inactive_days_count(size_t inactive_days_count);
+  void set_inactive_days_count(int inactive_days_count);
 
   template <Flag T>
   void set_flag(T flag) {
@@ -55,20 +55,20 @@ class UserParameters {
  private:
   std::vector<fs::path> paths_;
   std::vector<std::string> exclude_globs_;
-  size_t inactive_days_count_;
+  int inactive_days_count_;
   // todo comment about flags
   int flags_;
 };
 
 std::chrono::system_clock::time_point last_time(std::chrono::system_clock::time_point t1,
-                                                std::chrono::system_clock::time_point t2,
-                                                std::chrono::system_clock::time_point t3);
+                                                std::chrono::system_clock::time_point t2);
 
 std::chrono::system_clock::time_point get_last_access_approx(const struct stat& info);
 
 }  // namespace detail
-
+class Command;
 using ExecuteResult = std::expected<std::unique_ptr<CommandOutput>, Signal>;
+using ParsingResult = std::expected<std::unique_ptr<Command>, Signal>;
 
 class Command {
  public:
@@ -84,6 +84,8 @@ class Command {
 class Analyze : public Command {
  public:
   Analyze(Logger&, const detail::UserParameters&);
+  Analyze(Logger&, detail::UserParameters&&);
+
   ExecuteResult execute() override;
 
  private:
@@ -101,21 +103,23 @@ class Analyze : public Command {
 class Delete : public Command {
  public:
   Delete(Logger&, const detail::UserParameters&);
+  Delete(Logger&, detail::UserParameters&&);
+
   ExecuteResult execute() override;
 
   template <Flag T>
   bool has_flag(T flag) const {
-    return flags_ & static_cast<int>(flag);
+    return parameters_.has_flag(flag);
   }
 
   template <Flag T>
   void set_flag(T flag) {
-    flags_ |= static_cast<int>(flag);
+    parameters_.set_flag(flag);
   }
 
   template <Flag T>
   void remove_flag(T flag) {
-    flags_ &= ~(static_cast<int>(flag));
+    parameters_.remove_flag(flag);
   }
 
  private:
@@ -123,16 +127,18 @@ class Delete : public Command {
   void delete_to_trash(DeleteOutput& output);
 
   std::ifstream deletion_list_file_;
-  int flags_;
+  detail::UserParameters parameters_;
 };
 
 class Help : public Command {
  public:
+  Help(Logger&);
   ExecuteResult execute() override;
 };
 
 class Exit : public Command {
  public:
+  Exit(Logger&);
   ExecuteResult execute() override;
 };
 

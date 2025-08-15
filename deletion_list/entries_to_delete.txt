@@ -1,4 +1,0 @@
-/home/anton/Документы/test_dir/pic.pdf
-/home/anton/Документы/test_dir/test.c
-/home/anton/Документы/test_dir/table.xls
-/home/anton/Документы/test_dir/empty

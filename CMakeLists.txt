@@ -23,6 +23,7 @@ add_library(dcleaner_code STATIC
   "${SRC_PATH}/commands.cpp"
   "${SRC_PATH}/commands_output.cpp"
   "${SRC_PATH}/cli_output_writer.cpp"
+  "${SRC_PATH}/cli_input_parser.cpp"
 )
 
 target_include_directories(dcleaner_code PUBLIC 
