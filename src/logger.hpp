@@ -11,7 +11,15 @@ namespace fs = ghc::filesystem;
 
 enum class LogLevel { ERROR, WARNING, INFO, DEBUG };
 
-inline const fs::path LOGS_DIR = "logs";
+inline fs::path getLogsDir() {
+    const char* home = std::getenv("HOME");
+    if (home) {
+        return fs::path(home) / ".local" / "share" / "dcleaner" / "logs";
+    }
+    return "/tmp/dcleaner/logs"; // fallback, если HOME вдруг не задан
+}
+
+inline const fs::path LOGS_DIR  = getLogsDir();
 inline const fs::path LOGS_FILE = LOGS_DIR / "logs.txt";
 
 // Глобальный уровень логирования определяется на этапе компиляции

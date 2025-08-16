@@ -5,6 +5,7 @@
 #include "logger.hpp"
 
 int main(int argc, char* argv[]) {
+  dcleaner::fs::create_directories(dcleaner::LOGS_DIR);
   std::ofstream log_file(dcleaner::LOGS_FILE.native());
   if(!log_file.is_open()) {
     std::cout << "Error occured with logs file opening\n";
@@ -55,7 +56,6 @@ int main(int argc, char* argv[]) {
         std::cout << "Unknown command. Write \"help\" for info.\n";
         std::cout << dcleaner::detail::ansi::reset;
         std::cout.flush();
-
       }
     }
   }

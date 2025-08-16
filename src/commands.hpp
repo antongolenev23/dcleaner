@@ -15,7 +15,14 @@ namespace dcleaner {
 
 namespace fs = ghc::filesystem;
 
-inline const fs::path DELETION_LIST_DIR = "deletion_list";
+inline fs::path getTempDir() {
+    if (const char* runtime = std::getenv("XDG_RUNTIME_DIR")) {
+        return fs::path(runtime) / "dcleaner";
+    }
+    return fs::path("/tmp/dcleaner");
+}
+
+inline const fs::path DELETION_LIST_DIR  = getTempDir();
 inline const fs::path DELETION_LIST_FILE = DELETION_LIST_DIR / "entries_to_delete.txt";
 
 enum class Signal { EXIT, HELP, FILE_OPEN_ERROR, NOT_ENOUGH_PARAMETERS, WRONG_PARAMETERS, UNKNOWN_COMMAND };
