@@ -4,18 +4,6 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>dcleaner README</title>
-<style>
-  body { font-family: Arial, sans-serif; max-width: 800px; margin: auto; padding: 20px; line-height: 1.6; background: #f9f9f9; }
-  h1, h2, h3 { color: #2c3e50; }
-  pre { background: #2d2d2d; color: #f8f8f2; padding: 12px; border-radius: 5px; overflow-x: auto; }
-  code { background: #eee; padding: 2px 4px; border-radius: 3px; }
-  blockquote { color: #555; border-left: 4px solid #ccc; margin: 1em 0; padding-left: 10px; font-style: italic; background: #f0f0f0; }
-  hr { border: 0; border-top: 1px solid #ccc; margin: 2em 0; }
-  a { color: #2980b9; text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  .warning { background: #fff3cd; padding: 10px; border-left: 4px solid #ffc107; margin: 1em 0; }
-  .note { background: #e7f5ff; padding: 10px; border-left: 4px solid #4dabf7; margin: 1em 0; }
-</style>
 </head>
 <body>
 
@@ -65,7 +53,7 @@
 
 <p>Scans directories and reports statistics without deleting anything:</p>
 
-<pre><code>analyze /path/to/dir1 /path/to/dir2 [--inactive-days 30] [--temp] [--cache] [--empty] [--inactive] [--exclude node_modules,.git] [--min-age 24h]</code></pre>
+<pre><code>analyze [/path/to/dir1 [/path/to/dir2 [...]] [--temp] [--cache] [--empty] [--inactive 30d] [--exclude node_modules,.git] [--min-age 24h]</code></pre>
 
 <p><strong>Output example:</strong></p>
 <pre><code>Scan completed. Found:
@@ -85,7 +73,7 @@
 
 <p>Removes files based on prior analysis or direct paths:</p>
 
-<pre><code>dcleaner delete [--temp] [--cache] [--empty] [--inactive] [--force] [--exclude node_modules,.git] [--min-age 24h]</code></pre>
+<pre><code>dcleaner delete [/path/to/dir1 [/path/to/dir2 [...]] [--temp] [--cache] [--empty] [--inactive 30d] [--force] [--exclude node_modules,.git] [--min-age 24h]</code></pre>
 
 <p>If you run <code>delete</code> <strong>without any flags</strong> after a successful <code>analyze</code>, <code>dcleaner</code> will delete <em>everything found in the most recent analysis</em>.</p>
 
