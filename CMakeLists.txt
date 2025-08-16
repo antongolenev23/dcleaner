@@ -17,6 +17,7 @@ else()
 endif()
 
 add_executable(dcleaner "${SRC_PATH}/main.cpp")
+install(TARGETS dcleaner DESTINATION bin)
 
 add_library(dcleaner_code STATIC
   "${SRC_PATH}/glob_match_check.cpp"

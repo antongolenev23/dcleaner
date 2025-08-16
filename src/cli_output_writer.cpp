@@ -81,7 +81,7 @@ void CLIOutputWriter::write_output(const ExecuteResult& result, std::ostream& ou
       for (const auto& [category, summary] : command_output->get_summaries()) {
         switch (category) {
           case FileCategory::INACTIVE:
-            out << "Inactive: " << summary.entries_count_ << " files  " << green
+            out << "Inactive: " << summary.entries_count_ << " files  " << red
                 << detail::format_size(summary.entries_size_in_bytes_) << '\n';
             out << reset;
             break;
