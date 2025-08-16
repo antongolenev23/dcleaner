@@ -332,6 +332,7 @@ Exit::Exit(Logger& logger) : Command{logger} {}
 ExecuteResult Exit::execute() {
   std::error_code ec;
   fs::remove_all(DELETION_LIST_DIR, ec);
+  fs::remove_all(LOGS_FILE, ec);
   return std::unexpected(Signal::EXIT);
 }
 

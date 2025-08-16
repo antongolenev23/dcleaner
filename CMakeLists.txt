@@ -5,8 +5,9 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(SRC_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
-option(ENABLE_DEBUG "Build in Debug mode" ON)
-option(BUILD_TESTS "Build tests" ON)
+# change to ON if you want debug
+option(ENABLE_DEBUG "Build in Debug mode" OFF)
+option(BUILD_TESTS "Build tests" OFF)
 
 if(ENABLE_DEBUG)
   set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type" FORCE)

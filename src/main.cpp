@@ -2,53 +2,58 @@
 #include "cli_input_parser.hpp"
 #include "cli_output_writer.hpp"
 #include "commands.hpp"
-
-using namespace dcleaner;
+#include "logger.hpp"
 
 int main(int argc, char* argv[]) {
-  Logger logger;
+  std::ofstream log_file(dcleaner::LOGS_FILE.native());
+  if(!log_file.is_open()) {
+    std::cout << "Error occured with logs file opening\n";
+    return 1;
+  }
 
-  CLIInputParser parser{logger};
-  CLIOutputWriter output_writer;
+  dcleaner::Logger logger{log_file};
+
+  dcleaner::CLIInputParser parser{logger};
+  dcleaner::CLIOutputWriter output_writer;
 
   while (true) {
-    ParsingResult result = parser.parse_input(std::cin);
+    dcleaner::ParsingResult result = parser.parse_input(std::cin);
     if (result) {
-      if (Analyze* analyze_ptr = dynamic_cast<Analyze*>(result.value().get()); analyze_ptr) {
-        ExecuteResult output = analyze_ptr->execute();
+      if (dcleaner::Analyze* analyze_ptr = dynamic_cast<dcleaner::Analyze*>(result.value().get()); analyze_ptr) {
+        dcleaner::ExecuteResult output = analyze_ptr->execute();
         output_writer.write_output(output, std::cout);
-      } else if (Delete* delete_ptr = dynamic_cast<Delete*>(result.value().get()); delete_ptr) {
-        ExecuteResult output = delete_ptr->execute();
+      } else if (dcleaner::Delete* delete_ptr = dynamic_cast<dcleaner::Delete*>(result.value().get()); delete_ptr) {
+        dcleaner::ExecuteResult output = delete_ptr->execute();
         output_writer.write_output(output, std::cout);
       }
     } else {
-      Signal signal = result.error();
-      if (signal == Signal::HELP) {
-        Help help{logger};
-        ExecuteResult output = help.execute();
+      dcleaner::Signal signal = result.error();
+      if (signal == dcleaner::Signal::HELP) {
+        dcleaner::Help help{logger};
+        dcleaner::ExecuteResult output = help.execute();
         output_writer.write_output(output, std::cout);
 
-      } else if (signal == Signal::EXIT) {
-        Exit exit{logger};
+      } else if (signal == dcleaner::Signal::EXIT) {
+        dcleaner::Exit exit{logger};
         exit.execute();
         break;
 
-      } else if (signal == Signal::NOT_ENOUGH_PARAMETERS) {
-        std::cout << detail::ansi::yellow;
+      } else if (signal == dcleaner::Signal::NOT_ENOUGH_PARAMETERS) {
+        std::cout << dcleaner::detail::ansi::yellow;
         std::cout << "Not enough parameters. Write \"help\" for info.\n";
-        std::cout << detail::ansi::reset;
+        std::cout << dcleaner::detail::ansi::reset;
         std::cout.flush();
 
-      } else if (signal == Signal::WRONG_PARAMETERS) {
-        std::cout << detail::ansi::yellow;
+      } else if (signal == dcleaner::Signal::WRONG_PARAMETERS) {
+        std::cout << dcleaner::detail::ansi::yellow;
         std::cout << "Wrong parameters. Write \"help\" for info.\n";
-        std::cout << detail::ansi::reset;
+        std::cout << dcleaner::detail::ansi::reset;
         std::cout.flush();
 
-      } else if (signal == Signal::UNKNOWN_COMMAND) {
-        std::cout << detail::ansi::yellow;
+      } else if (signal == dcleaner::Signal::UNKNOWN_COMMAND) {
+        std::cout << dcleaner::detail::ansi::yellow;
         std::cout << "Unknown command. Write \"help\" for info.\n";
-        std::cout << detail::ansi::reset;
+        std::cout << dcleaner::detail::ansi::reset;
         std::cout.flush();
 
       }

@@ -15,8 +15,8 @@ namespace dcleaner {
 
 namespace fs = ghc::filesystem;
 
-const fs::path DELETION_LIST_DIR = "deletion_list";
-const fs::path DELETION_LIST_FILE = DELETION_LIST_DIR / "entries_to_delete.txt";
+inline const fs::path DELETION_LIST_DIR = "deletion_list";
+inline const fs::path DELETION_LIST_FILE = DELETION_LIST_DIR / "entries_to_delete.txt";
 
 enum class Signal { EXIT, HELP, FILE_OPEN_ERROR, NOT_ENOUGH_PARAMETERS, WRONG_PARAMETERS, UNKNOWN_COMMAND };
 

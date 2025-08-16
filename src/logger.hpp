@@ -3,10 +3,16 @@
 #include <iostream>
 #include <mutex>
 #include <string_view>
+#include "../external/filesystem.hpp"
 
 namespace dcleaner {
 
+namespace fs = ghc::filesystem;
+
 enum class LogLevel { ERROR, WARNING, INFO, DEBUG };
+
+inline const fs::path LOGS_DIR = "logs";
+inline const fs::path LOGS_FILE = LOGS_DIR / "logs.txt";
 
 // Глобальный уровень логирования определяется на этапе компиляции
 #ifndef DCLEANER_LOG_LEVEL
