@@ -219,9 +219,13 @@ void Analyze::add_file_to_deletion_list(const fs::path& file) {
   deletion_list_file_ << fs::absolute(file).native() << '\n';
 }
 
-Delete::Delete(Logger& logger, const UserParameters& parameters) : Command{logger}, parameters_(parameters) {}
+Delete::Delete(Logger& logger, const UserParameters& parameters) : Command{logger}, parameters_(parameters) {
+  deletion_list_file_.open(DELETION_LIST_FILE, std::ios::in);
+}
 
-Delete::Delete(Logger& logger, UserParameters&& parameters) : Command{logger}, parameters_(std::move(parameters)) {}
+Delete::Delete(Logger& logger, UserParameters&& parameters) : Command{logger}, parameters_(std::move(parameters)) {
+  deletion_list_file_.open(DELETION_LIST_FILE, std::ios::in);
+}
 
 void Delete::delete_permanently(DeleteOutput& output) {
   std::string current_path;

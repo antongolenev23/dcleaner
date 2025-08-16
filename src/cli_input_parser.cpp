@@ -53,6 +53,9 @@ ParsingResult CLIInputParser::parse_input(std::istream& input_stream) {
       }
     }
 
+    if(!parameters.has_flag(FileCategory::INACTIVE) && !parameters.has_flag(FileCategory::EMPTY)) {
+      return std::unexpected{Signal::NOT_ENOUGH_PARAMETERS};
+    }
     return std::make_unique<Analyze>(logger_, std::move(parameters));
 
   } else if (cmd_name == "delete") {

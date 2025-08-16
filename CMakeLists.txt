@@ -17,6 +17,7 @@ if(ENABLE_DEBUG)
   set(SANITIZER_FLAGS "-fsanitize=address,undefined -fno-omit-frame-pointer")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SANITIZER_FLAGS}")
   set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} ${SANITIZER_FLAGS}")
+  set(LSAN_OPTIONS "verbosity=1:log_threads=1")
 
   # Если есть clang-tidy — подключаем
   find_program(CLANG_TIDY_EXE NAMES "clang-tidy")
