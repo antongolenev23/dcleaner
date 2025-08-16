@@ -3,13 +3,12 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>dcleaner README</title>
 </head>
 <body>
 
 <h1>dcleaner</h1>
 
-<blockquote>A command-line utility to scan and clean up unnecessary files: temporary files, cache (including thumbnails), empty folders, and unused directories. Designed to be <strong>fast</strong>, <strong>safe</strong>, and <strong>simple to use</strong>.</blockquote>
+<blockquote>A command-line utility to scan and clean up unnecessary files: unused files and empty directories. Designed to be <strong>fast</strong>, <strong>safe</strong>, and <strong>simple to use</strong>.</blockquote>
 
 <hr />
 
@@ -18,10 +17,8 @@
 <p><code>dcleaner</code> helps you keep your system clean by detecting and removing:</p>
 
 <ul>
-  <li><strong>Temporary files</strong> (<code>*.tmp</code>, backup files, editor swap files, etc.)</li>
-  <li><strong>Cache directories and preview/thumbnail files</strong> (e.g., browser cache, <code>~/.cache/</code>, <code>Thumbs.db</code>, etc.)</li>
-  <li><strong>Empty folders</strong></li>
   <li><strong>Inactive directories</strong> (not accessed in N days)</li>
+  <li><strong>Empty folders</strong></li>
 </ul>
 
 <div class="note">
@@ -34,93 +31,103 @@
 </div>
 
 <div class="warning">
-  <h3>⚠️ Potential Risks</h3>
-  <p>Some files/folders require caution:</p>
+  <h3>⚠️ Critical Usage Notes</h3>
   <ul>
-    <li><strong>Temporary files (*.tmp)</strong>: May be in use by running applications. <em>Recommendation:</em> Skip files modified in the last 24 hours.</li>
-    <li><strong>Browser cache</strong>: Clearing may slow down subsequent website loads.
-    <li><strong>Empty folders</strong>: Some apps (e.g., <code>node_modules/</code>) expect them. <em>Recommendation:</em> Allow exclude lists.</li>
-    <li><strong>System directories</strong> (e.g., <code>/tmp/</code>, <code>~/Library/Caches/</code> on macOS). <em>Recommendation:</em> Avoid unless explicitly requested.</li>
+    <li><strong>Linux-only:</strong> this tool targets Linux systems. </li>
+    <li><strong>Do not point it at root folders</strong> (e.g., <code>/</code>, system-wide mount points). Scanning the entire filesystem can take a very long time and may have unintended consequences.</li>
+    <li><strong>No absolute guarantees:</strong> while designed to be safe, there is <em>no guarantee</em> that important files won’t be deleted if you misconfigure filters/paths. Review the output of <code>analyze</code> carefully before deletion.</li>
+    <li><strong>Best practice:</strong> use <code>dcleaner</code> for <em>narrow, local</em> directories where you understand the contents (e.g., a reports folder, downloads, project scratch space), rather than system or shared roots.</li>
   </ul>
 </div>
 
-<hr />
+<h2>Usage Guide</h2>
 
-<h2>Usage</h2>
-
-<p><code>dcleaner</code> operates in two modes: <strong>analysis</strong> (scan only) and <strong>deletion</strong> (cleanup).</p>
-<h3>1. Analyze Mode</h3>
-
-<p>Scans directories and reports statistics without deleting anything:</p>
-
-<pre><code>analyze [/path/to/dir1 [/path/to/dir2 [...]] [--temp] [--cache] [--empty] [--inactive 30d] [--exclude node_modules,.git] [--min-age 24h]</code></pre>
-
-<p><strong>Output example:</strong></p>
-<pre><code>Scan completed. Found:
-- 124 temporary files (1.2 GB)
-- 45 cache directories (580 MB)
-- 12 empty folders
-- 7 inactive folders (last accessed >30 days ago)</code></pre>
-
-<div class="note">
-  <p><strong>ℹ️ Note 1:</strong> All category flags (<code>--temp</code>, <code>--cache</code>, <code>--empty</code>, <code>--inactive</code>) are supported in <strong>analyze</strong> mode. Use them to restrict the analysis to specific types of files or folders.</p>
-  <p><strong>ℹ️ Note 2:</strong> If you run <code>analyze</code> without any paths, <code>dcleaner</code> will scan the entire file system starting from root (<code>/</code> or system drive). This may take significantly more time. </p>
-  <p><strong>ℹ️ Note 3:</strong> Use <code>--exclude</code> to skip certain subpaths (e.g. <code>--exclude node_modules</code>).</p>
-  <p><strong>ℹ️ Note 4:</strong> Use <code>--min-age</code> to ignore files modified more recently than the specified age (e.g. <code>--min-age 12h</code>, <code>--min-age 2d</code>).</p>
-</div>
-
-<h3>2. Delete Mode</h3>
-
-<p>Removes files based on prior analysis or direct paths:</p>
-
-<pre><code>dcleaner delete [/path/to/dir1 [/path/to/dir2 [...]] [--temp] [--cache] [--empty] [--inactive 30d] [--force] [--exclude node_modules,.git] [--min-age 24h]</code></pre>
-
-<p>If you run <code>delete</code> <strong>without any flags</strong> after a successful <code>analyze</code>, <code>dcleaner</code> will delete <em>everything found in the most recent analysis</em>.</p>
-
-<div class="note">
-  <p><strong>Key safeguards:</strong></p>
-  <ul>
-    <li>Requires explicit flags (e.g., <code>--temp</code>) to delete specific categories, unless used immediately after <code>analyze</code>.</li>
-    <li>Defaults to trash/recycle bin (use <code>--force</code> for permanent deletion).</li>
-    <li>Supports <code>--exclude</code> and <code>--min-age</code> to fine-tune what is deleted, even after prior analysis.</li>
-    <li>Shows a warning if run without prior analysis or paths.</li>
-  </ul>
-</div>
-
-
-
-<h3>3. Interactive Mode</h3>
-
-<p>Launch with no arguments for a step-by-step interface:</p>
-<pre><code>$ dcleaner
-dcleaner&gt; analyze ~/Downloads --inactive-days 60
-dcleaner&gt; delete --temp --cache
-dcleaner&gt; exit</code></pre>
-
-<hr />
-
-<h2>Safety Features</h2>
-
+<h3>General Notes</h3>
 <ul>
-  <li><strong>Exclude lists</strong>: Ignore specific paths via config file or CLI (<code>--exclude node_modules,.git</code>).</li>
-  <li><strong>File age filters</strong>: Skip recent files (<code>--min-age 24h</code>).</li>
+  <li>At least one of <code>--empty</code> or <code>--inactive</code> must be specified, otherwise no action is performed.</li>
+  <li>Exclusion patterns support globbing (see section <strong>Glob patterns</strong>).</li>
 </ul>
 
+<h3>Commands</h3>
+
+<h4><code>analyze &lt;paths...&gt; [options]</code></h4>
+<p>Analyze specified directories or files.</p>
+<p>Searches for:</p>
+<ul>
+  <li>Files that have not been used for more than the specified number of days (default: 30 days if <code>--inactive</code> is set without <code>--inactive-days</code>).</li>
+  <li>Empty directories (if <code>--empty</code> flag is provided).</li>
+</ul>
+
+<p><strong>Required:</strong></p>
+<ul>
+  <li><code>&lt;paths...&gt;</code> — one or more paths to analyze.</li>
+</ul>
+
+<p><strong>Options:</strong></p>
+<ul>
+  <li><code>--empty</code> — search for empty directories.</li>
+  <li><code>--inactive</code> — search for inactive files.</li>
+  <li><code>--inactive-days=&lt;N&gt;</code> — inactivity threshold in days.</li>
+  <li><code>--exclude=&lt;patterns&gt;</code> — comma-separated glob patterns to exclude.  
+      Example: <code>**/main.{go,py},temp/*</code></li>
+</ul>
+
+<p><strong>Examples:</strong></p>
+<pre><code>analyze /home/user/project --empty
+analyze /home/user/photo /home/user/texts/ --inactive --inactive-days=90 --exclude=**/*.tmp
+</code></pre>
+
+<h4><code>delete &lt;paths...&gt; [options]</code></h4>
+<p>Delete files or directories identified by a prior <code>analyze</code> command.  
+You can also run <code>delete</code> directly, but then you must specify paths and options.</p>
+
+<p><strong>Note:</strong> at least one of <code>--empty</code> or <code>--inactive</code> must be specified when running <code>delete</code> without a prior analyze.</p>
+
+<p><strong>Required (if not preceded by analyze):</strong></p>
+<ul>
+  <li><code>&lt;paths...&gt;</code> — one or more paths to delete.</li>
+</ul>
+
+<p><strong>Options:</strong></p>
+<ul>
+  <li><code>--empty</code> — same as in analyze.</li>
+  <li><code>--inactive</code> — same as in analyze.</li>
+  <li><code>--inactive-days=&lt;N&gt;</code> — same as in analyze.</li>
+  <li><code>--exclude=&lt;patterns&gt;</code> — same as in analyze.</li>
+  <li><code>--force</code> — permanently delete without moving to trash.</li>
+</ul>
+
+<p><strong>Examples:</strong></p>
+<pre><code>delete --force
+delete /home/user/old_logs /home/user/photo --inactive --inactive-days=60
+</code></pre>
+
+<h4><code>help</code></h4>
+<p>Show help message.</p>
+
+<h4><code>exit</code></h4>
+<p>Exit the program.</p>
+
 <hr />
 
-<h2>Installation</h2>
+<h3>Glob patterns</h3>
+<p>Globs are simplified matching patterns for file/folder names.</p>
 
-<hr />
+<p><strong>Supported special symbols:</strong></p>
+<ul>
+  <li><code>*</code> — matches zero or more characters in a single path segment.</li>
+  <li><code>**</code> — matches zero or more path segments recursively.</li>
+  <li><code>?</code> — matches exactly one character.</li>
+  <li><code>[abc]</code> — matches one character from the set (a, b, or c).</li>
+  <li><code>[a-z]</code> — matches one character in the range a–z.</li>
+  <li><code>[!abc]</code> — matches any single character <strong>not</strong> in the set.</li>
+  <li><code>{a,b,c}</code> — matches any of the listed alternatives.</li>
+</ul>
 
-<h2>License</h2>
-
-<p>MIT License — see the LICENSE file.</p>
-
-<hr />
-
-<h2>Author</h2>
-
-<p>Made by <a href="https://github.com/yourusername">Anton Golenev</a> with love.</p>
-
-</body>
-</html>
+<p><strong>Examples:</strong></p>
+<pre><code>*.txt                   — matches all .txt files in current directory
+**/*.log                — matches all .log files in all subdirectories
+/home/*/.bashrc         — matches .bashrc in any user’s home directory
+/var/**/log?.txt        — matches log1.txt, log2.txt, etc., anywhere under /var
+/tmp/{a,b}/file         — matches /tmp/a/file or /tmp/b/file
+</code></pre>
