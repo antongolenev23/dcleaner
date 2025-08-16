@@ -42,6 +42,29 @@
 
 <h2>Usage Guide</h2>
 
+<h2>Build / Installation</h2>
+
+<p>To build <code>dcleaner</code> from source, run the provided build script:</p>
+
+<pre><code>./build.sh
+</code></pre>
+
+<p>This script will:</p>
+<ul>
+  <li>Create a <code>build/</code> directory (if not already present).</li>
+  <li>Configure the project using <code>cmake</code>.</li>
+  <li>Compile the source code in <strong>Release</strong> mode by default.</li>
+</ul>
+
+<p>After a successful build, the <code>dcleaner</code> binary will be available in <code>build/</code>.</p>
+
+<p>To install it into your local user directory (<code>~/.local/bin</code>):</p>
+<pre><code>cmake --install build --prefix ~/.local
+</code></pre>
+
+<p>Make sure <code>~/.local/bin</code> is in your <code>$PATH</code> so you can run <code>dcleaner</code> from anywhere.</p>
+
+
 <h3>General Notes</h3>
 <ul>
   <li>At least one of <code>--empty</code> or <code>--inactive</code> must be specified, otherwise no action is performed.</li>
